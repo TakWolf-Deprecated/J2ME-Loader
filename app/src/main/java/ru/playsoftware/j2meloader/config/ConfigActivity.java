@@ -18,6 +18,7 @@
 package ru.playsoftware.j2meloader.config;
 
 import android.annotation.SuppressLint;
+import android.content.ActivityNotFoundException;
 import android.content.Intent;
 import android.content.SharedPreferences;
 import android.content.res.Configuration;
@@ -25,6 +26,7 @@ import android.graphics.Color;
 import android.graphics.drawable.ColorDrawable;
 import android.net.Uri;
 import android.os.Bundle;
+import android.os.Environment;
 import android.os.storage.StorageManager;
 import android.os.storage.StorageVolume;
 import android.text.Editable;
@@ -57,6 +59,7 @@ import java.util.Set;
 import javax.microedition.shell.MicroActivity;
 import javax.microedition.util.ContextHolder;
 
+import androidx.activity.result.ActivityResultLauncher;
 import androidx.annotation.NonNull;
 import androidx.appcompat.app.AlertDialog;
 import androidx.appcompat.widget.PopupMenu;
@@ -67,8 +70,11 @@ import androidx.core.widget.TextViewCompat;
 import ru.playsoftware.j2meloader.R;
 import ru.playsoftware.j2meloader.base.BaseActivity;
 import ru.playsoftware.j2meloader.databinding.ActivityConfigBinding;
+import ru.playsoftware.j2meloader.filepicker.FilteredFilePickerFragment;
 import ru.playsoftware.j2meloader.settings.KeyMapperActivity;
+import ru.playsoftware.j2meloader.util.Constants;
 import ru.playsoftware.j2meloader.util.FileUtils;
+import ru.playsoftware.j2meloader.util.SAFFileResultContract;
 import yuku.ambilwarna.AmbilWarnaDialog;
 
 import static ru.playsoftware.j2meloader.util.Constants.*;
@@ -89,12 +95,15 @@ public class ConfigActivity extends BaseActivity implements View.OnClickListener
 	private boolean isProfile;
 	private Display display;
 	private File configDir;
+	private SharedPreferences preferences;
 	private String defProfile;
 	private ArrayAdapter<ShaderInfo> spShaderAdapter;
 	private String workDir;
 	private boolean needShow;
 
 	private ActivityConfigBinding binding;
+
+	private final ActivityResultLauncher<String> openFontFileLauncher = registerForActivityResult(new SAFFileResultContract(), this::onPickFontFileResult);
 
 	@SuppressLint({"StringFormatMatches", "StringFormatInvalid"})
 	@Override
@@ -149,8 +158,8 @@ public class ConfigActivity extends BaseActivity implements View.OnClickListener
 		}
 		configDir.mkdirs();
 
-		defProfile = PreferenceManager.getDefaultSharedPreferences(getApplicationContext())
-				.getString(PREF_DEFAULT_PROFILE, null);
+		preferences = PreferenceManager.getDefaultSharedPreferences(getApplicationContext());
+		defProfile = preferences.getString(PREF_DEFAULT_PROFILE, null);
 		loadConfig();
 		if (!params.isNew && !needShow) {
 			startMIDlet();
@@ -177,6 +186,8 @@ public class ConfigActivity extends BaseActivity implements View.OnClickListener
 		binding.swapScreenSides.setOnClickListener(this);
 		binding.addScreenSizeToPresets.setOnClickListener(v -> addResolutionToPresets());
 		binding.showFontSizePresets.setOnClickListener(this);
+		binding.selectFontFilePath.setOnClickListener(this);
+		binding.clearFontFilePath.setOnClickListener(this);
 		binding.selectScreenBackgroundColor.setOnClickListener(this);
 		binding.showKeyMappings.setOnClickListener(this);
 		binding.updateKeyboardNotPressedButtonBackgroundColor.setOnClickListener(this);
@@ -530,6 +541,33 @@ public class ConfigActivity extends BaseActivity implements View.OnClickListener
 		fontPresetTitles.add(title);
 	}
 
+	private void onPickFontFileResult(Uri uri) {
+		if (uri == null) {
+			return;
+		}
+		File file;
+		try {
+			File tmpFile = FileUtils.getFileForUri(this, uri);
+			if (!TextUtils.isEmpty(params.fontFilePath)) {
+				File oldFile = new File(params.fontFilePath);
+				if (oldFile.exists()) {
+					oldFile.delete();
+				}
+			}
+			File fontsDir = new File(Config.getFontsDir());
+			fontsDir.mkdirs();
+			file = new File(fontsDir, System.currentTimeMillis() + ".font");
+			FileUtils.moveFiles(tmpFile, file);
+		} catch (IOException e) {
+			return;
+		}
+		preferences.edit()
+				.putString(Constants.PREF_LAST_PATH, FilteredFilePickerFragment.getLastPath())
+				.apply();
+        binding.fontFilePath.setText(file.getAbsolutePath());
+		saveParams();
+	}
+
 	private int parseInt(String s) {
 		return parseInt(s, 10);
 	}
@@ -581,6 +619,7 @@ public class ConfigActivity extends BaseActivity implements View.OnClickListener
 		binding.fontSizeSmall.setText(Integer.toString(params.fontSizeSmall));
 		binding.fontSizeMedium.setText(Integer.toString(params.fontSizeMedium));
 		binding.fontSizeLarge.setText(Integer.toString(params.fontSizeLarge));
+		binding.fontFilePath.setText(params.fontFilePath);
 		binding.showFontSizesInScaledPixelsToggle.setChecked(params.fontApplyDimensions);
 		binding.enableAntiAliasingToggle.setChecked(params.fontAA);
 		boolean showVk = params.showKeyboard;
@@ -660,6 +699,7 @@ public class ConfigActivity extends BaseActivity implements View.OnClickListener
 			} catch (NumberFormatException e) {
 				params.fontSizeLarge = 0;
 			}
+			params.fontFilePath = binding.fontFilePath.getText().toString().trim();
 			params.fontApplyDimensions = binding.showFontSizesInScaledPixelsToggle.isChecked();
 			params.fontAA = binding.enableAntiAliasingToggle.isChecked();
 			params.showKeyboard = binding.showVirtualKeyboardToggle.isChecked();
@@ -800,6 +840,36 @@ public class ConfigActivity extends BaseActivity implements View.OnClickListener
 								binding.fontSizeLarge.setText(Integer.toString(values[2]));
 							})
 					.show();
+		} else if (id == R.id.select_font_file_path) {
+			String path = preferences.getString(PREF_LAST_PATH, null);
+			if (path == null) {
+				File dir = Environment.getExternalStorageDirectory();
+				if (dir.canRead()) {
+					path = dir.getAbsolutePath();
+				}
+			}
+			try {
+				openFontFileLauncher.launch(path);
+			} catch (ActivityNotFoundException e) {
+				Toast.makeText(this, R.string.error_no_picker, Toast.LENGTH_SHORT).show();
+				e.printStackTrace();
+			}
+		} else if (id == R.id.clear_font_file_path) {
+			if (!TextUtils.isEmpty(binding.fontFilePath.getText())) {
+				File file = new File(binding.fontFilePath.getText().toString().trim());
+				if (file.exists()) {
+					file.delete();
+				}
+				binding.fontFilePath.setText(null);
+			}
+			if (!TextUtils.isEmpty(params.fontFilePath)) {
+				File file = new File(params.fontFilePath);
+				if (file.exists()) {
+					file.delete();
+				}
+				params.fontFilePath = null;
+			}
+			saveParams();
 		} else if (id == R.id.select_screen_background_color) {
 			showColorPicker(binding.screenBackgroundHexColor);
 		} else if (id == R.id.update_keyboard_not_pressed_button_background_color) {

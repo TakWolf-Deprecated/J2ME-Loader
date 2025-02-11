@@ -164,7 +164,7 @@ public class FileUtils {
 		}
 	}
 
-	static void moveFiles(File src, File dst) {
+	public static void moveFiles(File src, File dst) {
 		if (src.renameTo(dst)) return;
 		File[] files = src.listFiles();
 		if (files == null) {

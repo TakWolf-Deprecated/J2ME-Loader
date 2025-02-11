@@ -60,6 +60,7 @@ public class Font {
 	private static final float[] sizes = {22, 18, 26};
 
 	private static boolean antiAlias;
+	private static Typeface customFamily;
 
 	final Paint paint = new Paint();
 	final float ascent;
@@ -75,16 +76,18 @@ public class Font {
 		this.style = style;
 		this.size = size;
 
-		Typeface family;
-		switch (face) {
-			case FACE_MONOSPACE:
-				family = Typeface.MONOSPACE;
-				break;
-			case FACE_PROPORTIONAL:
-				family = Typeface.SANS_SERIF;
-				break;
-			default:
-				family = Typeface.DEFAULT;
+		Typeface family = customFamily;
+		if (family == null) {
+			switch (face) {
+				case FACE_MONOSPACE:
+					family = Typeface.MONOSPACE;
+					break;
+				case FACE_PROPORTIONAL:
+					family = Typeface.SANS_SERIF;
+					break;
+				default:
+					family = Typeface.DEFAULT;
+			}
 		}
 
 		paint.setColor(Color.BLACK);
@@ -179,6 +182,9 @@ public class Font {
 
 	public static void applySettings(ProfileModel params) {
 		antiAlias = params.fontAA;
+		try {
+			customFamily = Typeface.createFromFile(params.fontFilePath);
+		} catch (Exception ignored) {}
 
 		float small = params.fontSizeSmall;
 		float medium = params.fontSizeMedium;

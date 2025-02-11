@@ -101,6 +101,9 @@ public class ProfileModel {
 	@SerializedName("FontSizeLarge")
 	public int fontSizeLarge;
 
+	@SerializedName("FontFilePath")
+	public String fontFilePath;
+
 	@SerializedName("FontApplyDimensions")
 	public boolean fontApplyDimensions;
 

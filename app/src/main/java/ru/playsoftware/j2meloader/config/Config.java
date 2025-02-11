@@ -56,6 +56,7 @@ public class Config {
 	private static String dataDir;
 	private static String configsDir;
 	private static String profilesDir;
+	private static String fontsDir;
 	private static String appDir;
 
 	private static final SharedPreferences.OnSharedPreferenceChangeListener sPrefListener =
@@ -98,6 +99,10 @@ public class Config {
 
 	public static String getProfilesDir() {
 		return profilesDir;
+	}
+
+	public static String getFontsDir() {
+		return fontsDir;
 	}
 
 	public static String getAppDir() {
@@ -148,6 +153,7 @@ public class Config {
 		dataDir = emulatorDir + MIDLET_DATA_DIR;
 		configsDir = emulatorDir + MIDLET_CONFIGS_DIR;
 		profilesDir = emulatorDir + "/templates/";
+		fontsDir = emulatorDir + "/fonts/";
 		appDir = emulatorDir + "/converted/";
 	}
 }
