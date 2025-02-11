@@ -23,6 +23,7 @@ import android.content.Intent;
 import android.content.SharedPreferences;
 import android.content.res.Configuration;
 import android.graphics.Color;
+import android.graphics.Typeface;
 import android.graphics.drawable.ColorDrawable;
 import android.net.Uri;
 import android.os.Bundle;
@@ -566,6 +567,12 @@ public class ConfigActivity extends BaseActivity implements View.OnClickListener
 				.apply();
         binding.fontFilePath.setText(file.getAbsolutePath());
 		saveParams();
+
+		try {
+			Typeface.createFromFile(file);
+		} catch (Exception e) {
+			Toast.makeText(this, "字体加载失败：" + e.getLocalizedMessage(), Toast.LENGTH_SHORT).show();
+		}
 	}
 
 	private int parseInt(String s) {
